@@ -1,0 +1,321 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  policy-change-alert
+
+  An IT automation AWS Step Functions workflow.
+
+Parameters:
+  EmailAddress:
+    Type: String
+    Default: " "
+    Description: (Required) The email address to notify on policy issues.
+  restrictedActions:
+    Type: String
+    Default: "s3:DeleteBucket,s3:DeleteObject"
+    Description: Restricted policy actions
+
+Resources:
+  RecieveUserAPI:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/recieveUser
+      Handler: app.handler
+      Runtime: nodejs10.x
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "states:SendTaskSuccess"
+              Resource: "*"
+      Events:
+        allow:
+          Type: Api
+          Properties:
+            Path: "/allow"
+            Method: get
+        deny:
+          Type: Api
+          Properties:
+            Path: "/deny"
+            Method: get
+
+  ValidatePolicy:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/validatePolicy
+      Handler: app.handler
+      Runtime: nodejs10.x
+      Environment:
+        Variables:
+          restrictedActions: !Ref "restrictedActions"
+  
+  PolicyChangerApprove:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/policyChangerApprove
+      Handler: app.handler
+      Runtime: nodejs10.x
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "iam:CreatePolicyVersion"
+              Resource: "*"
+      Environment:
+        Variables:
+          restrictedActions: !Ref "restrictedActions"
+
+  RevertPolicy:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/revertPolicy
+      Handler: app.handler
+      Runtime: nodejs10.x
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "iam:CreatePolicyVersion"
+                - "iam:DeletePolicyVersion"
+              Resource: "*"
+      Environment:
+        Variables:
+          restrictedActions: !Ref "restrictedActions"
+  AskUser:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/askUser
+      Handler: app.handler
+      Runtime: nodejs10.x
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - "sns:Publish"
+              Resource: "*"
+      Environment:
+        Variables:
+          restrictedActions: !Ref "restrictedActions"
+          Topic: !Ref "AlertTopic"
+          APIAllowEndpoint:
+            Fn::Sub: "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/allow"
+          APIDenyEndpoint:
+            Fn::Sub: "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/deny"
+
+
+
+
+  StateMachine:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      DefinitionString: !Sub |-
+        {
+          "Comment": "Defect detection state machine",
+          "StartAt": "ModifyState",
+          "States": {
+            "ModifyState": {
+              "Type": "Pass",
+              "Parameters": {
+                "policy.$": "$.detail.requestParameters.policyDocument",
+                "accountId.$": "$.detail.userIdentity.accountId",
+                "region.$": "$.region",
+                "policyMeta.$":"$.detail.responseElements.policy"
+              },
+              "ResultPath": "$",
+              "Next": "ValidatePolicy"
+            },
+            "ValidatePolicy": {
+              "Type": "Task",
+              "ResultPath":"$.taskresult",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ValidatePolicy}",
+              "Next": "ChooseAction"
+            },
+            "TempRemove": {
+              "Type": "Task",
+              "ResultPath":"$.taskresult",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${RevertPolicy}",
+              "Next": "AskUser"
+            },
+            "ChooseAction": {
+              "Type" : "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.taskresult.action",
+                  "StringEquals": "remedy",
+                  "Next": "TempRemove"
+                },
+                {
+                  "Variable": "$.taskresult.action",
+                  "StringEquals": "alert",
+                  "Next": "AllowWithNotification"
+                }
+              ],
+              "Default": "AllowWithNotification"
+            },
+            "AllowWithNotification": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${AlertTopic}",
+                "Subject": "Policy change detected!",
+                "Message.$": "$.taskresult.message"
+              },
+              "End": true
+            },
+            "AskUser":{
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+                  "Parameters":{  
+                      "FunctionName": "${AskUser}",
+                      "Payload":{  
+                          "token.$":"$$.Task.Token"
+                        }
+                  },
+                "ResultPath":"$.taskresult",
+                "Next": "usersChoice"
+            },
+            "usersChoice": {
+              "Type" : "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.taskresult.action",
+                  "StringEquals": "delete",
+                  "Next": "denied"
+                },
+                {
+                  "Variable": "$.taskresult.action",
+                  "StringEquals": "allow",
+                  "Next": "approved"
+                }
+              ],
+              "Default": "denied"
+            },
+            "denied": {
+              "Type": "Pass",
+              "End": true
+            },
+            "approved": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${PolicyChangerApprove}",              
+              "End": true
+            }
+          }
+        }
+      RoleArn: !GetAtt [StatesExecutionRole, Arn]
+
+  StatesExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: StateMachineTasks
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: !GetAtt ValidatePolicy.Arn
+
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: !GetAtt AskUser.Arn
+
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: !GetAtt RecieveUserAPI.Arn
+
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                  - "iam:CreatePolicyVersion"
+                Resource: !GetAtt PolicyChangerApprove.Arn
+
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                  - "iam:CreatePolicyVersion"
+                  - "iam:DeletePolicyVersion"
+                Resource: !GetAtt RevertPolicy.Arn
+
+              - Effect: Allow
+                Action:
+                  - "sns:Publish"
+                Resource: !Ref AlertTopic
+                
+  CloudwatchEventsExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: StartStepFunctions
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Ref StateMachine
+
+  IAMEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "NewPolicyCreated"
+      EventPattern:
+        source: 
+          - "aws.iam"
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - iam.amazonaws.com
+          eventName:
+            - CreatePolicy
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Ref: "StateMachine"
+          Id: "StateMachineTarget"
+          RoleArn: !GetAtt CloudwatchEventsExecutionRole.Arn
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: alertTopic
+
+  EmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref "EmailAddress"
+      Protocol: Email-JSON
+      TopicArn: !Ref "AlertTopic"
+###OUTPUTS######
+Outputs:
+  PolicyOrchestratorAPIAllow:
+    Description: API Gateway endpoint URL for dev allow function
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/allow
+  PolicyOrchestratorAPIDeny:
+    Description: API Gateway endpoint URL for dev allow function
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/deny

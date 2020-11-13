@@ -1,0 +1,10 @@
+{
+  "name": "sar-policy-change-alert-validate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "Amazon.com, Inc. or its affiliates",
+  "license": "MIT-0",
+  "dependencies": {},
+  "devDependencies": {}
+}

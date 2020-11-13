@@ -56,7 +56,7 @@ sam deploy \
 
 ## Creating the Step function
 
-[Screenshot]: /src/images/Step-Functions-Management_Console.png "Step Functions state machine"
+[Screenshot]: /src/imag/Step-Functions-Management_Console.png "Step Functions state machine"
 
 Navigate to the [Step Functions console](https://console.aws.amazon.com/states/home?#/statemachines) and click on **edit**.
 

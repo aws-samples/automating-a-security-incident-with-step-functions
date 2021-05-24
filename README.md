@@ -71,7 +71,7 @@ All states will be defined insite `States{}` object:
     }
 }
 ```
-#### MofidyState
+#### ModifyState
 Re-structures the input data into a more usable format:
 ```bash
 "ModifyState": {
@@ -184,7 +184,7 @@ Branch based on user's approval/deny action:
 ```
 
 #### denied
-User denied  policy creation, end execution with no further action:
+User denied policy creation, end execution with no further action:
 ```bash
  "denied": {
     "Type": "Pass",
@@ -193,7 +193,7 @@ User denied  policy creation, end execution with no further action:
 ```
 
 #### Approved
-Restore initial  policy document by creating as a new version:
+Restore initial policy document by creating as a new version:
 ```bash
 "approved": {
     "Type": "Task",

@@ -30,7 +30,7 @@ This is an AWS SAM template for an Automated policy orchestrator - Below is an e
 Follow the instructions below in order to deploy from this repository:
 
 
-1. Create an [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)  if you do not already have one and login.
+1. [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)  if you do not already have one and login.
 
 1. Clone the repo onto your local development machine:
 
@@ -44,7 +44,11 @@ Follow the instructions below in order to deploy from this repository:
  sam deploy --guided
  ```
 
-Follow the prompts in the deploy process to set the stack name and AWS Region.
+Follow the prompts in the deploy process to set the applicaiton, email address and restrictedActions:
+
+* Application name: **an identifiable name for the application.**
+* EmailAddress: **an administrator’s email address for receiving approval requests.**
+* restrictedActions: **The IAM Policy actions you want to restrict.**
 
 
 ## Creating the Step function

@@ -46,8 +46,6 @@ Follow the instructions below in order to deploy from this repository:
 
 Follow the prompts in the deploy process to set the stack name and AWS Region.
 
-Next, the following command will create a Cloudformation Stack and deploy your SAM resources.
-
 
 ## Creating the Step function
 

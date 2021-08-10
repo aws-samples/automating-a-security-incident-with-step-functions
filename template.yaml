@@ -21,7 +21,7 @@ Resources:
     Properties:
       CodeUri: src/recieveUser
       Handler: app.handler
-      Runtime: nodejs10.x
+      Runtime: nodejs14.x
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -46,7 +46,7 @@ Resources:
     Properties:
       CodeUri: src/validatePolicy
       Handler: app.handler
-      Runtime: nodejs10.x
+      Runtime: nodejs14.x
       Environment:
         Variables:
           restrictedActions: !Ref "restrictedActions"
@@ -56,7 +56,7 @@ Resources:
     Properties:
       CodeUri: src/policyChangerApprove
       Handler: app.handler
-      Runtime: nodejs10.x
+      Runtime: nodejs14.x
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -73,7 +73,7 @@ Resources:
     Properties:
       CodeUri: src/revertPolicy
       Handler: app.handler
-      Runtime: nodejs10.x
+      Runtime: nodejs14.x
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -90,7 +90,7 @@ Resources:
     Properties:
       CodeUri: src/askUser
       Handler: app.handler
-      Runtime: nodejs10.x
+      Runtime: nodejs14.x
       Policies:
         - Version: '2012-10-17'
           Statement:

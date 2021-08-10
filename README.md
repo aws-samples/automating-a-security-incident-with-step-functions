@@ -1,6 +1,6 @@
 # Automated security orchestrator with AWS Step Functions
 
-This is a SAM template for an Automated policy orchestrator - Below is an explanation of how to deploy the template and build the Step Function state machine:
+This is an AWS SAM template for an Automated policy orchestrator - Below is an explanation of how to deploy the template and build the Step Function state machine:
 
 ![Application Architecture](/src/img/architecture.png)
 
@@ -18,41 +18,32 @@ This is a SAM template for an Automated policy orchestrator - Below is an explan
 ├── padpolicy.json              <-- Example policy document
 ```
 
+## Requirements
+
+* AWS CLI already configured with Administrator permission
+* [AWS SAM CLI installed](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) - **minimum version 0.48**.
+
+
+
 ## Set up
 
-##### Option 1: Deploy from the Serverless application repository (preferred)
-
-[![button](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/lambda/home?region=us-east-1#/create/app?applicationId=arn:aws:serverlessrepo:us-east-1:981723798357:applications/Automated-IAM-policy-alerts-and-approvals)
-
----
-
-##### Option 2: clone, package and deploy
 Follow the instructions below in order to deploy from this repository:
-Clone this repo to your local machine.
 
-Firstly, we need a `S3 bucket` where we can upload our Lambda functions packaged as ZIP before we deploy anything - If you don't have a S3 bucket to store code artifacts then this is a good time to create one:
 
-```bash
-aws s3 mb s3://BUCKET_NAME
-```
+1. Create an [Create an AWS account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html)  if you do not already have one and login.
 
-```bash
+1. 
 
-sam build && sam package \
---output-template-file package.yaml \
---s3-bucket BUCKET_NAME
-```
+1. Clone the repo onto your local development machine:
+ ```git clone https://github.com/aws-samples/automating-a-security-incident-with-step-functions.git```
+
+ 1. In the root directory, from the command line, run:
+ ```sam deploy --guided```
+
+Follow the prompts in the deploy process to set the stack name and AWS Region.
 
 Next, the following command will create a Cloudformation Stack and deploy your SAM resources.
 
-```bash
-sam deploy \
-    --template-file package.yaml \
-    --stack-name sam-app \
-    --capabilities CAPABILITY_NAMED_IAM \
-    --parameter-overrides EmailAddress={YOUR-EMAIL-ADDRESS}
-
-```
 
 ## Creating the Step function
 

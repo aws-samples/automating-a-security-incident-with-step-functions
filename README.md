@@ -34,11 +34,15 @@ Follow the instructions below in order to deploy from this repository:
 
 1. Clone the repo onto your local development machine:
 
- ```git clone https://github.com/aws-samples/automating-a-security-incident-with-step-functions.git```
-
- 1. In the root directory, from the command line, run:
+ ```bash 
+ git clone https://github.com/aws-samples/automating-a-security-incident-with-step-functions.git
+ ```
  
- ```sam deploy --guided```
+ 3. In the root directory, from the command line, run:
+
+ ```bash
+ sam deploy --guided
+ ```
 
 Follow the prompts in the deploy process to set the stack name and AWS Region.
 
